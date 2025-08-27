@@ -10,7 +10,7 @@ As exercise, I've decided to find a malware sample on MalwareBazaar to analyze. 
 {:toc}
 
 # Introduction
-As exercise, I've decided to find a malware sample on MalwareBazaar to analyze. I was looking for a Windows malware written in C/C++, so I chose the sample described in this post. This is not a new threat on the web and after the analysis, with more knowledge about its functionalities, I can say that, probably, it's a variant of a Ghost RAT malware, known as Gh0stCringe. The sample is documented at [this](https://bazaar.abuse.ch/sample/04795669ada92df9a0361b6e169be7b6c23c888f6a56a96c35bd8cd4c09cd6c9/) link and here are some details:
+The sample is documented at [this](https://bazaar.abuse.ch/sample/04795669ada92df9a0361b6e169be7b6c23c888f6a56a96c35bd8cd4c09cd6c9/) link and here are some details:
 
 |Name   |SHA-256|
 |---    |---|
@@ -28,17 +28,17 @@ First of all, i ran the executable to try to understand what it did. The executi
 
 Once executed, i've seen that the malware tried to send some data to the `156.236.72.163` address, to port tcp/8000:
 
-![captured traffic](/assets/network_traffic.png)
+![captured traffic](/assets/network_traffic.png){: .center-image}
 
 The data appeared encrypted in some way, but the repeated `a3` bytes looked suspicious, as they suggested an encryption method using this single byte XORed through all the data. Trying to perform a XOR with `a3` resulted in another incomprehensible bunch of bytes, so there should be another encryption layer.
 
 Another action this malware did was set persistence. This was obtained modifying the registry key `HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run\(Default)`. In this way the malware would have been executed on every machine reboot.
 
-![persistence through registry key](/assets/persistence.png)
+![persistence through registry key](/assets/persistence.png){: .center-image}
 
 Among all the registry operation, it jumped out a failed attempt to create a service. So, probably, this malware tried different techniques in order to obtain persistence:
 
-![presistence with services](/assets/persistence_access_denied.png)
+![presistence with services](/assets/persistence_access_denied.png){: .center-image}
 
 As you can see in the image above, the malware tried to create a service named `Rsoyac uyuyscoi` but since it did not have enough privileges, the access to the registry key resulted in an access denied error.
 
@@ -50,7 +50,7 @@ After this quick session of dynamic analysis, i've decided to start with a deepe
 ## Loader analysis
 The file `1.exe` is a 32-bit malware written in C++. It is not packed, but its import table does not contain all the functions it uses while running, since it only imports `KERNEL32.dll`.
 
-![malware import table](/assets/imports.png)
+![malware import table](/assets/imports.png){: .center-image}
 
 Note: the sample was loaded in a disassembler at base address `0x00400000`, so all the addresses reported below are relative to this base.
 
@@ -85,21 +85,21 @@ where `key == 0x7a`, derived starting from the seed `0x4381` using the following
 mov     eax, [ebp+seed]
 and     eax, 0FFh
 cdq
-mov     ecx, 5Fh ; '_'
+mov     ecx, 5Fh
 idiv    ecx
-add     edx, 58h ; 'X'
+add     edx, 58h
 mov     [ebp+key], dl
 {% endhighlight %}
 
 `decrypt_2`, instead, seems to be an implementation of the (XX)TEA algorithm, due to the presence of the constants `0x61C88647` and `0x9E3779B9`. This function takes as argument the key (an array of integer `[8, 0, 8, 1]`), the buffer length negated and the address to the buffer to decrypt. I did not spend time to analyze this function, since i was more interested to the content of the buffer once decrypted. So, using a debugger, i've checked the buffer once both of the decryption functions terminated their execution.
 
-![DLL decrypted](/assets/dll_decrypted.png)
+![DLL decrypted](/assets/dll_decrypted.png){: .center-image}
 
 The initial `MZ` bytes and the subsequent message `This program cannot be run in DOS mode` suggested that this buffer contained an executable. In fact, once extracted, it was evident that this was a DLL. The rest of the malware code manually injects this DLL in its address space and transfers the execution to it. This injection is performed using standard functions like `VirtualAlloc` and `VirtualProtect`, whose addresses were recovered through the usage of `LoadLibrary` and `GetProcAddress`.
 
 At offset `0x00401843` there is the `call` instruction to pass the execution to the DLL entry point.
 
-![DLL execution](/assets/dll_execution.png)
+![DLL execution](/assets/dll_execution.png){: .center-image}
 
 Although the DLL exports a function named StudyHard, it is never called because execution is transferred directly to DllMain. Nevertheless, `StudyHard` is identical to `DllMain`, so nothing would have changed by running it instead of `DllMain`.
 
@@ -112,35 +112,35 @@ As for the loader, I've imported this DLL in IDA using `0x10000000` as base addr
 
 Starting the analysis, the first action this malware is configured to do is to retrieve the PID of its parent process. If it is 0, the malware terminates. Otherwise, the malware is configured to kill any running instance of `rundll.exe`, as an attempt at an anti-debug techique. This is done by the function call at address `0x10005D7C`:
 
-![taskkill rundll](/assets/kill_rundll.png)
+![taskkill rundll](/assets/kill_rundll.png){: .center-image}
 
 Subsequently, another flag is checked to see if the malware should download a file from Internet. In this case my sample was not configured to do it, so i pass over these instructions. After that, the configuration makes it call `GetVersionExA` in order to retrieve the OS version of the victim's machine. In particular, the malware is selecting a path based on the Windows version of the machine that is running it. In my case (in the path selected if you are running a Windows 10 machine) at address `0x10007CB5` a thread is created with the only goal to set persistence using the registry key `HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run\(Default)`, as we noted during dynamic analysis.
 
-![Thread to set persistence](/assets/persistence_asm.png)
+![Thread to set persistence](/assets/persistence_asm.png){: .center-image}
 
 The alternative paths selected when using different Windows versions attempt to obtain the same goal, but using different methods, like the creation of a service. Note that, even in these paths, there is a configuration flag that makes the malware copy itself to `C:\Program Files\Nkfkyhs.exe` or not.
 
 Continuing with the code, another thread is created and this is the responsible for executing all the logic of this malware. Note that, to create this second thread, the malware does not call directly `CreateThread`, but it uses a wrapper function (renamed in `create_thread`) that calls `_beginthreadex`. Here, the malware author tried to do some obfuscation, since the target of `_beginthreadex` is not the real function the newly thread will execute but a 'trampoline' that will execute the real function.
 
-![create_thread call](/assets/create_thread_call.png)
+![create_thread call](/assets/create_thread_call.png){: .center-image}
 
 In the following screenshot you can note that `create_thread` creates a new thread to execute `thread_trampoline`, with the real function to execute passed as argument. In addition, note the event created that will be signaled inside `thread_trampoline`, to communicate to the parent that the thread has been created before continuing the execution.
 
-![create_thread assembly](/assets/create_thread_asm.png)
+![create_thread assembly](/assets/create_thread_asm.png){: .center-image}
 
 Finally, `thread_trampoline` takes the real function to run and executes it:
 
-![Real function executed](/assets/thread_trampoline.png)
+![Real function executed](/assets/thread_trampoline.png){: .center-image}
 
 Now, going further the technique used to create this new thread, let's focus on what it does. First of all, it creates a mutex named `156.236.72.163:8000:Rsoyac uyuyscoi`, to ensure that the malware is executed only once, then it tries to set persistence for all users, setting the registry key `HKLM/SYSTEM\CurrentControlSet\Services\Rsoyac uyuyscoi`. As noted during dynamic analysis, this operation fails due to the lack of the privileges to edit this key. This operation is performed at address `0x10008AE8`:
 
-![Persistence all users](/assets/persistence_all_users.png)
+![Persistence all users](/assets/persistence_all_users.png){: .center-image}
 
 (The function pointer to `RegCreateKeyExA` used by the `call` instruction is retrieved previosly in the code with a combination of `LoadLibraryA` and `GetProcAddress`).
 
 After that, another configuration flag is checked to determine whether a new thread for keylogging needs to be created. In this case, the DLL is configured to do so, so the thread is created and it's responsible for performing keylogging and saving all keystrokes to a file named `Default.key`. This function is located at address `0x100026A0`, and you can identify it as a keylogger by examining the calls it makes.
 
-![Keylog function calls](/assets/keylog_function_calls.png)
+![Keylog function calls](/assets/keylog_function_calls.png){: .center-image}
 
 The functions `get_window_title` and `write_to_file` were renamed by me after analysis.
 
@@ -148,19 +148,19 @@ The file containing all the keystrokes is stored at `C:\Users\Frankie\AppData\Lo
 
 I had not noticed this file during the initial dynamic analysis, but when running the malware again, the file was indeed written:
 
-![Keylog file write](/assets/keylog_writefile.png)
+![Keylog file write](/assets/keylog_writefile.png){: .center-image}
 
 However, the content of this file is encrypted in some way:
 
-![Keylog file encrypted](/assets/keylog_file_encrypted.png)
+![Keylog file encrypted](/assets/keylog_file_encrypted.png){: .center-image}
 
 This because, inside `write_to_file()` function (at address `0x10002450`) each byte is XORed with `0x62` before being written:
 
-![Keylog XOR](/assets/keylog_xor.png)
+![Keylog XOR](/assets/keylog_xor.png){: .center-image}
 
 In fact, doing the XOR again unveils the file content:
 
-![Keylog file decrypted](/assets/keylog_file_decrypted.png)
+![Keylog file decrypted](/assets/keylog_file_decrypted.png){: .center-image}
 
 The characters between the square brackets should be asian, but since i'm using a different locale they aren't displayed correctly.
 
@@ -168,7 +168,7 @@ After the keylog thread creation, the DLL establish a TCP socket to the C2 serve
 
 It's important to note the `call` at address `0x100066BA`, since, in the function called, a pointer is stored in a class previously created. This pointer is located at address `0x1000C30C` and it seems to be an array of function pointers. This will return during the C2 response analysis, where these functions are selected based on what the C2 server sends to the malware. 
 
-![Class functions](/assets/class_functions.png)
+![Class functions](/assets/class_functions.png){: .center-image}
 
 So, after the socket creation, the malware sends the first message to its C2 server, to nofify it about the new machine infected. This is performed by the function at address `0x100059D0` and that i've renamed in `send_data` (`call` instruction at address `0x100066E5`). Before send the message, this function gathers data about the infected machine. These data are:
 
@@ -184,39 +184,39 @@ So, after the socket creation, the malware sends the first message to its C2 ser
 
 In particular, to check for all drives, the DLL checks for each letter starting from `A:` to `Z:` and calls the two functions for each of them:
 
-![Drive loop](/assets/drive_loop.png)
+![Drive loop](/assets/drive_loop.png){: .center-image}
 
 To detect a running antivirus, the DLL embeds a list of process names known to belong to antivirus programs. Using the `CreateToolhelp32Snapshot()`, `Process32First()`, and `Process32Next()` functions, it enumerates all running processes and checks for matches against its antivirus list.
 
 Finally, to detect if the victim's PC is inactive, it substracts from the return value of `GetTickCount()` the value contained by the `dwTime` member of the `plii` structure, filled after the call to `GetLastInputInfo()`. If the result is above 180000 milliseconds (3 minutes), the PC is considered inactive.
 
-![Inactive detection](/assets/inactive.png)
+![Inactive detection](/assets/inactive.png){: .center-image}
 
 After all the data is gathered, the DLL sends it to the C2 server. The actual call to `send()` is performed by the function at address `0x10002390`. However, as noted during dynamic analysis, the data sent through the socket is encrypted. In fact, always in this function, before sending the payload, the buffer is encrypted with a combination of XOR and subtraction. In particular, the value `0x46` is subtracted to each byte and then each of them is XORed with `0x19`:
 
-![Payload encryption](/assets/payload_encryption.png)
+![Payload encryption](/assets/payload_encryption.png){: .center-image}
 
 Reversing these operations (doing first the XOR with `0x19` and then add `0x46`) it is possible to obtain the sent data in clear text:
 
-![Message decrypted](/assets/message_decrypted.png)
+![Message decrypted](/assets/message_decrypted.png){: .center-image}
 
 At first glance it is possible to detect the computer name, the number of processors and the name of the antivirus. After the payload is sent, the malware waits a bit before it gathers the data and sends to C2 again, in loop.
 
 Now, it's time to check what the malware does when it receives messages from the C2 server. Unfortunately, the C2 server seems to be unreachable at the time of writing this post, so it was impossible for me to dynamically debug the malware when a message is received. However, as mentioned previously, Once the DLL creates a socket with the C2 server, the same function creates a thread used to receive and parse message from the server. This function is located at address `0x10001E20` and after the `recv()` call, it is possible to observe that the received message is decrypted in the same way done to decrypt the sent buffer.
 
-![Receive message and decrypt](/assets/recv_and_decrypt.png)
+![Receive message and decrypt](/assets/recv_and_decrypt.png){: .center-image}
 
 After the decryption, the DLL starts to parse the message, at a function located at address `0x10001F30`. Here, the assembly is a bit confusing, especially without the possibility to debug it, but the most interesting part is the `call()` instruction towards the end of the function, at address `0x10002142`:
 
-![Receive message and decrypt](/assets/final_call.png)
+![Receive message and decrypt](/assets/final_call.png){: .center-image}
 
 The content of the `edx` registry is the function pointer array mentioned early (addess `0x1000C30C`) and as you can see from the screenshot above, the second function of the array is called:
 
-![Function array](/assets/function_array.png)
+![Function array](/assets/function_array.png){: .center-image}
 
 I've renamed the called function as `manage_operation`, since it contains a switch case to execute various tasks based on the content of the message received. Probably, the message from C2 server contains a number or something similar that could be used as index to select the right path.  
 
-![Switch case](/assets/switch_case.png)
+![Switch case](/assets/switch_case.png){: .center-image}
 
 The features this malware makes available are the following (they're not all the features but the ones i managed to understand):
 
