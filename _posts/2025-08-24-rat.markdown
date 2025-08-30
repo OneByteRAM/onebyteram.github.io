@@ -210,7 +210,7 @@ After the decryption, the DLL starts to parse the message, at a function located
 
 ![Receive message and decrypt](/assets/final_call.png){: .center-image}
 
-The content of the `edx` registry is the function pointer array mentioned early (addess `0x1000C30C`) and as you can see from the screenshot above, the second function of the array is called:
+The content of the `edx` registry is the vtable mentioned early (addess `0x1000C30C`) and as you can see from the screenshot above, the second function is called:
 
 ![Function array](/assets/function_array.png){: .center-image}
 
