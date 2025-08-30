@@ -166,7 +166,7 @@ The characters between the square brackets should be asian, but since i'm using 
 
 After the keylog thread creation, the DLL establish a TCP socket to the C2 server (IP: `156.236.72.163`, port tcp/8000) through a function i've renamed `connect_to_host()`. The `call` instruction is located at address `0x1000668E` and this function, in addition, creates another thread to receive and manage the response from the server. I will analyze this part later. 
 
-It's important to note the `call` at address `0x100066BA`, since, in the function called, a pointer is stored in a class previously created. This pointer is located at address `0x1000C30C` and it seems to be an array of function pointers. This will return during the C2 response analysis, where these functions are selected based on what the C2 server sends to the malware. 
+It's important to note the `call` at address `0x100066BA`, since, in the function called, a pointer is stored in a class previously created. This pointer is located at address `0x1000C30C` and it seems to be the vtable for the class. This will return during the C2 response analysis, where these functions are selected based on what the C2 server sends to the malware. 
 
 ![Class functions](/assets/class_functions.png){: .center-image}
 
