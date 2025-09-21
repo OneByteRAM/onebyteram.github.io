@@ -144,7 +144,7 @@ After that, another configuration flag is checked to determine whether a new thr
 
 The functions `get_window_title` and `write_to_file` were renamed by me after analysis.
 
-The file containing all the keystrokes is stored at `C:\Users\Frankie\AppData\Local\VirtualStore\Windows\SysWOW64\Default.key`, even through the code calls `GetSystemDirectoryA`. This happens because the malware does not have the privileges required to write to the `C:\Windows\System32` folder. As a fallback, Windows File Virtualization redirects the write attempt to VirtualStore, a per-user folder where unauthorized writes to protected system locations (such as `C:\Windows\System32`) are stored instead.
+The file containing all the keystrokes is stored at `C:\Users\<username>\AppData\Local\VirtualStore\Windows\SysWOW64\Default.key`, even through the code calls `GetSystemDirectoryA`. This happens because the malware does not have the privileges required to write to the `C:\Windows\System32` folder. As a fallback, Windows File Virtualization redirects the write attempt to VirtualStore, a per-user folder where unauthorized writes to protected system locations (such as `C:\Windows\System32`) are stored instead.
 
 I had not noticed this file during the initial dynamic analysis, but when running the malware again, the file was indeed written:
 
