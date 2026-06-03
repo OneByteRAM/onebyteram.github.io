@@ -1,0 +1,15 @@
+---
+---
+
+@import
+  "minima/skins/{{ site.minima.skin | default: 'classic' }}",
+  "minima/initialize";
+
+pre:has(> .language-mermaid) {
+  background: none;
+}
+
+code.language-mermaid {
+  background: none;
+  text-align: center;
+}

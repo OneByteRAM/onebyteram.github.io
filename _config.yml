@@ -35,12 +35,13 @@ google_analytics: G-FBDNDHF2NN
 
 minima:
   show_excerpts: true
+  skin: dark
   social_links:
     - title: X
       icon: x-twitter
       url: "https://x.com/OneByteRAM"
 # Build settings
-remote_theme: jekyll/minima
+remote_theme: "jekyll/minima@4de322363fca5927e6f4012cb94f6dad69ab5e6c"
 plugins:
   - jekyll-feed
   - jekyll-remote-theme
